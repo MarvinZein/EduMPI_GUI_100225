@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=GUI_Cluster
+Exec=appGUI_Cluster
+Icon=user
+Comment=Cluster GUI Application
+Terminal=false
+Categories=Utility;

@@ -63,6 +63,23 @@ Controller::~Controller()
 
 }
 
+QString removeFilePrefix(const QString &file_path){
+    QString adjustedPath = file_path;
+    if (adjustedPath.startsWith("file:///"))
+    {
+        if (QOperatingSystemVersion::currentType() == QOperatingSystemVersion::Windows)
+        {
+            adjustedPath.remove(0, 8);
+        }
+        else
+        {
+            adjustedPath.remove(0, 7);
+        }
+    }
+
+    return adjustedPath;
+}
+
 bool Controller::copyEnvFile(){
     QTemporaryFile tmpFile(QDir::tempPath() + "/XXXXXX.env");
     tmpFile.setAutoRemove(false);
@@ -210,9 +227,7 @@ void Controller::writeLocalBashFile(QString local_path, bool file, int proc_num)
     }
     emit setProcNum(proc_num);
 
-    if(local_path.startsWith("file:///")){
-        local_path.remove(0,7);
-    }
+    local_path = removeFilePrefix(local_path);
 
     QProcess bash_proc;
     QString resourcePath;
@@ -281,9 +296,8 @@ void Controller::writeLocalBashFile(QString local_path, bool file, int proc_num)
 }
 
 bool Controller::checkFile(QString source, QString program, bool file){
-    if(source.startsWith("file:///")){
-        source.remove(0,7);
-    }
+    source = removeFilePrefix(source);
+
     if(file){
         if(source.endsWith(".c")){
             QFile fileA(source);

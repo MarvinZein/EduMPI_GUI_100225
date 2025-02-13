@@ -26,39 +26,35 @@ Controller::Controller(QObject *parent) : QObject(parent)
 }
 
 void Controller::connect(QString hostname, QString databasename, int port, QString username, QString password){
-    char tempFileTemplate[] = "/tmp/XXXXXX.env";
-    std::cout << "Temp file template: " << tempFileTemplate << std::endl;
-    int fd = mkstemps(tempFileTemplate, 4);
-    m_envFilePath = tempFileTemplate;
-    if (fd == -1) {
-        std::cerr << "Failed to create temporary file: " << strerror(errno) << std::endl;
-        return;
-    }
-    close(fd);
+    QTemporaryFile tempFile(QDir::tempPath() + "/XXXXXX.env");
+    tempFile.setAutoRemove(false);
 
-    std::cout << "Temporary file created: " << m_envFilePath << std::endl;
-
-    std::ofstream tempFile(m_envFilePath,  std::ofstream::trunc);
-    if (!tempFile.is_open()) {
-        std::cerr << "Failed to open temporary file for writing: " << strerror(errno) << std::endl;
+    if (!tempFile.open()) {
+        qWarning() << "Failed to create/open temporary file:" << tempFile.errorString();
         return;
     }
 
-    tempFile << "DB_HOST=" << hostname.toStdString() << "\n";
-    tempFile << "DB_NAME=" << databasename.toStdString() << "\n";
-    tempFile << "DB_PORT=" << port << "\n";
-    tempFile << "DB_USER=" << username.toStdString() << "\n";
-    tempFile << "DB_PW=" << password.toStdString() << "\n";
+    m_envFilePath = tempFile.fileName().toStdString();
+    qDebug() << "Temporary file created:" << QString::fromStdString(m_envFilePath);
 
-    bool connect = connectToDB(hostname, databasename, port, username, password);
-    //Hier stand vorher nur True, kann sein, dass das gebraucht wird!
-    m_connection_ready = connect;
+    QTextStream out(&tempFile);
+    out << "DB_HOST=" << hostname << "\n"
+        << "DB_NAME=" << databasename << "\n"
+        << "DB_PORT=" << port << "\n"
+        << "DB_USER=" << username << "\n"
+        << "DB_PW=" << password << "\n";
+    out.flush();
+    tempFile.close();
+
+    bool connectOk = connectToDB(hostname, databasename, port, username, password);
+    m_connection_ready = connectOk;
+
     m_job_table = new Table_UserID();
-    if(!m_cluster_ident.isEmpty()){
+    if (!m_cluster_ident.isEmpty()) {
         m_job_table->loadJobs(m_cluster_ident);
     }
-    //m_job_table->setDatabaseConnection(m_dbConnection);
-    emit connectionSignal(connect);
+
+    emit connectionSignal(connectOk);
 }
 
 
@@ -68,39 +64,37 @@ Controller::~Controller()
 }
 
 bool Controller::copyEnvFile(){
-    char tempFileTemplate[] = "/tmp/XXXXXX.env";
-    int fd = mkstemps(tempFileTemplate, 4);
-    std::string temp_string = tempFileTemplate;
-    if (fd == -1) {
-        std::cerr << "Failed to create temporary file: " << strerror(errno) << std::endl;
-        return false;
-    }
-    close(fd);
+    QTemporaryFile tmpFile(QDir::tempPath() + "/XXXXXX.env");
+    tmpFile.setAutoRemove(false);
 
-    QFile sourceFile(QString::fromStdString(m_envFilePath));
-    QFile destFile(QString::fromStdString(temp_string));
-
-    if (!destFile.open(QIODevice::WriteOnly)) {
-        qWarning() << "Failed to open destination file:" << temp_string;
-        return false;
-    }
-    if (!sourceFile.open(QIODevice::ReadOnly)) {
-        qWarning() << "Failed to open source file:" << m_envFilePath;
+    if (!tmpFile.open()) {
+        qWarning() << "Cannot create temporary file:" << tmpFile.errorString();
         return false;
     }
 
-    QByteArray fileData = sourceFile.readAll();
-    destFile.write(fileData);
-
-    if (!m_envFilePath.empty()) {
-        if (unlink(m_envFilePath.c_str()) != 0) {
-            std::cerr << "Failed to delete temporary file" << std::endl;
-        } else {
-            std::cout << "Temporary .env file deleted" << std::endl;
-        }
+    QFile source(QString::fromStdString(m_envFilePath));
+    if (!source.open(QIODevice::ReadOnly)) {
+        qWarning() << "Cannot open source file:" << m_envFilePath.c_str();
+        return false;
     }
 
-    m_envFilePath = temp_string;
+    QByteArray data = source.readAll();
+    qint64 writtenBytes = tmpFile.write(data);
+    if (writtenBytes < 0 || writtenBytes != data.size()) {
+        qWarning() << "Failed to write all data to temporary file:"
+                   << tmpFile.errorString();
+        return false;
+    }
+
+    tmpFile.flush();
+    source.close();
+    tmpFile.close();
+
+    if (!m_envFilePath.empty() && QFile::exists(QString::fromStdString(m_envFilePath))) {
+        QFile::remove(QString::fromStdString(m_envFilePath));
+    }
+
+    m_envFilePath = tmpFile.fileName().toStdString();
     return true;
 }
 

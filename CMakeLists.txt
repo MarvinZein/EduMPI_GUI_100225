@@ -26,6 +26,7 @@ else ()
 endif ()
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Quick QuickControls2 Quick3D Sql)
+find_package(PostgreSQL REQUIRED)
 
 qt_standard_project_setup()
 
@@ -34,10 +35,6 @@ qt_policy(SET QTP0002 NEW)  # Neues Verhalten für Build-/Installationsverzeichn
 qt_policy(SET QTP0003 NEW)  # Für Plugins, wenn benötigt
 qt_policy(SET QTP0004 NEW)  # Module mit mehreren QML-Dateien benötigen ein qmldir
 
-
-
-INCLUDE_DIRECTORIES("/usr/include/postgresql")
-LINK_DIRECTORIES("/usr/lib/postgresql/12/lib")
 
 qt6_add_resources(QML_RESOURCES resources.qrc)
 
@@ -111,6 +108,9 @@ set_target_properties(appGUI_Cluster PROPERTIES
     QT_WAYLAND_DISABLE_TEXT_INPUT "1"
 
 )
+
+include_directories(${PostgreSQL_INCLUDE_DIRS})
+target_link_libraries(appGUI_Cluster PRIVATE ${PostgreSQL_LIBRARIES})
 
 target_link_libraries(appGUI_Cluster PRIVATE
     Qt6::Core

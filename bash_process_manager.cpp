@@ -24,7 +24,7 @@ Bash_Process_Manager::Bash_Process_Manager (QObject *parent)
 
 void Bash_Process_Manager::startProcess(const QStringList &arguments)
 {
-    process->setProgram("bash");
+    process->setProgram(BASH_PATH);
     process->setArguments(arguments);
     process->start();
     m_status = "";

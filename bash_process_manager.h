@@ -5,6 +5,12 @@
 #include <QProcess>
 #include <QDateTime>
 
+#if defined(Q_OS_WIN)
+static const QString BASH_PATH = R"(C:/Program Files/Git/bin/bash.exe)";
+#else
+static const QString BASH_PATH = "bash";
+#endif
+
 class Bash_Process_Manager : public QObject
 {
     Q_OBJECT
